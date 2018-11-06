@@ -19,6 +19,7 @@ import { generateCredentials } from './commands/generatecredentials';
 import { repoBundleRef } from './utils/bundleselection';
 import { promptForCredentials } from './utils/credentials';
 import { exportBundle } from './commands/exportbundle';
+import { filters } from './utils/importexport';
 
 const duffleDiagnostics = vscode.languages.createDiagnosticCollection("Duffle");
 
@@ -176,7 +177,28 @@ async function pull(repoBundle: RepoBundleRef): Promise<void> {
 }
 
 async function importBundle(): Promise<void> {
-    await vscode.window.showInformationMessage("import");
+    const openUris = await vscode.window.showOpenDialog({ filters: filters, canSelectFiles: true, canSelectFolders: false, canSelectMany: false });
+    if (!openUris || openUris.length !== 1) {
+        return;
+    }
+
+    const openUri = openUris[0];
+    if (openUri.scheme !== 'file') {
+        await vscode.window.showErrorMessage("This command requires a filesystem input");
+        return;
+    }
+
+    const openPath = openUri.fsPath;
+
+    const importResult = await longRunning(`Duffle importing ${openPath}`, () =>
+        duffle.importBundle(shell.shell, openPath)
+    );
+
+    if (succeeded(importResult)) {
+        await refreshBundleExplorer();
+    }
+
+    await showDuffleResult('import', openPath, importResult);
 }
 
 async function credentialsetDelete(credentialSet: CredentialSetRef): Promise<void> {
