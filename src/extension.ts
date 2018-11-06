@@ -18,6 +18,7 @@ import { exposeParameter } from './commands/exposeparameter';
 import { generateCredentials } from './commands/generatecredentials';
 import { repoBundleRef } from './utils/bundleselection';
 import { promptForCredentials } from './utils/credentials';
+import { exportBundle } from './commands/exportbundle';
 
 const duffleDiagnostics = vscode.languages.createDiagnosticCollection("Duffle");
 
@@ -36,6 +37,8 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('duffle.pull', pull),
         vscode.commands.registerCommand('duffle.push', push),
         vscode.commands.registerCommand('duffle.install', install),
+        vscode.commands.registerCommand('duffle.import', importBundle),
+        vscode.commands.registerCommand('duffle.export', exportBundle),
         vscode.commands.registerCommand('duffle.generateCredentials', generateCredentials),
         vscode.commands.registerCommand('duffle.refreshBundleExplorer', () => bundleExplorer.refresh()),
         vscode.commands.registerCommand('duffle.refreshRepoExplorer', () => { /* (TODO: REPO: restore when repos land for real) repoExplorer.refresh() */ }),
@@ -170,6 +173,10 @@ async function pull(repoBundle: RepoBundleRef): Promise<void> {
     }
 
     await showDuffleResult('pull', bundleName, pullResult);
+}
+
+async function importBundle(): Promise<void> {
+    await vscode.window.showInformationMessage("import");
 }
 
 async function credentialsetDelete(credentialSet: CredentialSetRef): Promise<void> {
