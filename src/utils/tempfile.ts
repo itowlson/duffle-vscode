@@ -16,3 +16,12 @@ export async function withOptionalTempFile<T>(content: string | undefined, fileT
         tempFile.removeCallback();
     }
 }
+
+export async function withTempDirectory<T>(fn: (dirpath: string) => Promise<T>): Promise<T> {
+    const tempDir = tmp.dirSync({ prefix: "vsduffle-", unsafeCleanup: true });
+    try {
+        return await fn(tempDir.name);
+    } finally {
+        tempDir.removeCallback();
+    }
+}

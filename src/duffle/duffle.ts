@@ -1,14 +1,16 @@
 import * as path from 'path';
-import * as fs from 'fs';
 import * as vscode from 'vscode';
 
 import * as config from '../config/config';
-import { Errorable } from '../utils/errorable';
+import { Errorable, failed } from '../utils/errorable';
+import { fs } from '../utils/fs';
 import * as shell from '../utils/shell';
 import { RepoBundle, LocalBundle, Claim } from './duffle.objectmodel';
 import { sharedTerminal } from './sharedterminal';
 import * as pairs from '../utils/pairs';
 import * as buildDefinition from './builddefinition';
+import { localBundlePath } from './duffle.paths';
+import { withTempDirectory } from '../utils/tempfile';
 
 const logChannel = vscode.window.createOutputChannel("Duffle");
 
@@ -109,7 +111,7 @@ export function showStatus(bundleName: string, credentialSet: string | undefined
 
 export async function build(sh: shell.Shell, folderPath: string): Promise<Errorable<null>> {
     const buildFile = path.join(folderPath, buildDefinition.definitionFile);
-    if (!fs.existsSync(buildFile)) {
+    if (!(await fs.exists(buildFile))) {
         return { succeeded: false, error: [`${folderPath} does not contain a ${buildDefinition.definitionFile} file`] };
     }
     return await invokeObj(sh, 'build', `${folderPath}`, {}, (s) => null);
@@ -124,8 +126,17 @@ export async function installBundle(sh: shell.Shell, bundleName: string, name: s
 }
 
 export async function exportBundle(sh: shell.Shell, bundleName: string, destination: string, thick: boolean): Promise<Errorable<null>> {
-    const thickFlag = thick ? '-f' : '';
-    return await invokeObj(sh, 'export', `${bundleName} ${thickFlag} -d "${destination}"`, {}, (s) => null);
+    // Workaround until "duffle export bundleref..." lands
+    return await withTempDirectory<Errorable<null>>(async (tempdir) => {
+        const bundleParse = bundleName.split(':');
+        const bundleFile = await localBundlePath(bundleParse[0], bundleParse[1]);
+        if (failed(bundleFile)) {
+            return { succeeded: false, error: bundleFile.error };
+        }
+        await fs.copyFile(bundleFile.result, path.join(tempdir, 'bundle.cnab'));
+        const modeFlag = thick ? '' : '-t';
+        return await invokeObj(sh, 'export', `"${tempdir}" ${modeFlag} -o "${destination}"`, {}, (s) => null);
+    });
 }
 
 export async function importBundle(sh: shell.Shell, filePath: string): Promise<Errorable<null>> {
