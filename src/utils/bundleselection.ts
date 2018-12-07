@@ -97,7 +97,7 @@ export function fileBundleSelection(bundleFile: vscode.Uri): BundleSelection {
 export function repoBundleSelection(bundle: RepoBundle): BundleSelection {
     return {
         kind: 'repo',
-        label: bundle.name,
+        label: `${bundle.name}:${bundle.version}`,
         bundle: repoBundleRef(bundle)
     };
 }
@@ -105,7 +105,7 @@ export function repoBundleSelection(bundle: RepoBundle): BundleSelection {
 export function localBundleSelection(bundle: LocalBundle): BundleSelection {
     return {
         kind: 'local',
-        label: bundle.name,
+        label: `${bundle.name}:${bundle.version}`,  // TODO: maybe remove prefix and have that only in the detail
         bundle: `${bundle.name}:${bundle.version}`
     };
 }
@@ -217,16 +217,28 @@ export function prefix(name: string): string | undefined {
     return name.substring(0, sepIndex);
 }
 
-export function nameOnly(bundle: RepoBundle): string {
+export function nameOnly(bundle: RepoBundle | LocalBundle): string {
     return parseNameOnly(bundle.name);
 }
 
-export function parseNameOnly(bundleName: string): string {
+function parseNameOnly(bundleName: string): string {
+    return removeVersion(removePrefix(bundleName));
+}
+
+function removePrefix(bundleName: string): string {
     const sepIndex = bundleName.lastIndexOf('/');
     if (sepIndex < 0) {
         return bundleName;
     }
     return bundleName.substring(sepIndex + 1);
+}
+
+function removeVersion(bundleName: string): string {
+    const sepIndex = bundleName.lastIndexOf(':');
+    if (sepIndex < 0) {
+        return bundleName;
+    }
+    return bundleName.substring(0, sepIndex);
 }
 
 const SAFE_NAME_ILLEGAL_CHARACTERS = /[^A-Za-z0-9_-]/g;
@@ -236,7 +248,7 @@ export function suggestName(bundlePick: BundleSelection): string {
         const containingDir = path.basename(path.dirname(bundlePick.path));
         return safeName(containingDir);
     } else {
-        const baseName = parseNameOnly(bundlePick.label);
+        const baseName = parseNameOnly(bundlePick.bundle);
         return safeName(baseName);
     }
 }

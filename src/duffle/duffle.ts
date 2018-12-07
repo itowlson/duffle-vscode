@@ -126,16 +126,30 @@ export async function installBundle(sh: shell.Shell, bundleName: string, name: s
 }
 
 export async function exportBundle(sh: shell.Shell, bundleName: string, destination: string, thick: boolean): Promise<Errorable<null>> {
-    // Workaround until "duffle export bundleref..." lands
+    // Workaround until "duffle export bundleref..." lands:
+    // Because export currently takes a directory, we need to copy the bundle
+    // from local storage to a temp directory, and export that.
+    // Once duffle export takes a bundle reference, we can get rid of
+    // all this!
     return await withTempDirectory<Errorable<null>>(async (tempdir) => {
+        async function gettempcopydest(sourcePath: string): Promise<string> {
+            const text = await fs.readFile(sourcePath, 'utf8');
+            if (text.startsWith('-')) {
+                return path.join(tempdir, 'bundle.cnab');
+            } else {
+                return path.join(tempdir, 'bundle.json');
+            }
+        }
         const bundleParse = bundleName.split(':');
         const bundleFile = await localBundlePath(bundleParse[0], bundleParse[1]);
         if (failed(bundleFile)) {
             return { succeeded: false, error: bundleFile.error };
         }
-        await fs.copyFile(bundleFile.result, path.join(tempdir, 'bundle.cnab'));
+        const tempFile = await gettempcopydest(bundleFile.result);
+        await fs.copyFile(bundleFile.result, tempFile);
+        const insecureFlag = tempFile.endsWith('.json') ? '--insecure' : '';
         const modeFlag = thick ? '' : '-t';
-        return await invokeObj(sh, 'export', `"${tempdir}" ${modeFlag} -o "${destination}"`, {}, (s) => null);
+        return await invokeObj(sh, 'export', `"${tempdir}" ${modeFlag} -o "${destination}" ${insecureFlag}`, {}, (s) => null);
     });
 }
 
